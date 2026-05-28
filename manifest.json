@@ -1,8 +1,9 @@
 {
   "name": "Pet Vaccination Tracker",
   "short_name": "pet-vaccinat",
-  "start_url": "/",
+  "start_url": "/pet-vaccination-tracker/",
   "display": "standalone",
   "background_color": "#ffffff",
-  "theme_color": "#6366f1"
+  "theme_color": "#6366f1",
+  "scope": "/pet-vaccination-tracker/"
 }
