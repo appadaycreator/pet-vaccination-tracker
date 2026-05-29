@@ -247,7 +247,7 @@ j=d.createElement(s),dl=l!="dataLayer"?"&l="+l:"";j.async=true;j.src=
         </div>`;
       }).join('');
     }
-    document.addEventListener('DOMContentLoaded',()=>{ document.getElementById('pet-date').value=new Date().toISOString().slice(0,10); render(); });
+    document.addEventListener('DOMContentLoaded',()=>{ const _n=new Date(); document.getElementById('pet-date').value=`${_n.getFullYear()}-${String(_n.getMonth()+1).padStart(2,'0')}-${String(_n.getDate()).padStart(2,'0')}`; render(); });
     // ★以下変更不要★
     </script>
 </body>
