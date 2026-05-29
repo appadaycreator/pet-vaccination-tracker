@@ -3,8 +3,8 @@
 ## 概要
 
 **サービス名**: Pet Vaccination Tracker
-**バージョン**: 1.0.0
-**更新日**: 2026-05-27
+**バージョン**: 1.1.0
+**更新日**: 2026-05-29
 **URL**: https://appadaycreator.com/pet-vaccination-tracker/
 
 ワクチン接種日・フィラリア予防・健診日程を記録して次回接種のリマインダー管理。登録不要・完全無料でご利用いただけます。
@@ -67,6 +67,18 @@
 ## デプロイ
 
 GitHub Pages（mainブランチ push → 自動デプロイ）
+
+## 変更履歴
+
+### v1.1.0 (2026-05-29)
+- PWA theme-color を #6366f1 → #F97316（サービスカラー）に統一（全6ファイル）
+- manifest.json: short_name を "ワクチン記録" に修正、icons フィールド追加
+- サブページの manifest リンクを /pet-vaccination-tracker/manifest.json に修正
+- HowTo スキーマをサービス固有の操作手順に更新
+- usage.html をサービス固有の説明に全面改訂
+- 削除ボタンに aria-label 追加（アクセシビリティ改善）
+- ペット別フィルター機能追加（複数ペット登録時に自動表示）
+- CSV エクスポート機能追加（UTF-8 BOM付き、Excel対応）
 
 ## ライセンス
 
