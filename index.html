@@ -152,10 +152,10 @@ j=d.createElement(s),dl=l!="dataLayer"?"&l="+l:"";j.async=true;j.src=
             <h2 style="font-size:15px;font-weight:700;margin-bottom:12px;color:#374151;">📖 使い方</h2>
             <ol style="padding-left:20px;font-size:13px;color:#475569;line-height:1.9;">
                 <li>記録したい項目を入力フォームに入力する</li>
-                <li>「追加」または「記録」ボタンをクリックする</li>
+                <li>「記録を追加 ＋」ボタンをクリックする</li>
                 <li>記録一覧で過去のデータを確認する</li>
-                <li>グラフや集計で傾向を把握する</li>
-                <li>継続的に記録して変化を追跡する</li>
+                <li>ペット別フィルターで個別ペットの記録を表示する</li>
+                <li>CSV出力で記録をダウンロードして管理する</li>
             </ol>
         </div>
 
@@ -211,11 +211,33 @@ j=d.createElement(s),dl=l!="dataLayer"?"&l="+l:"";j.async=true;j.src=
     </footer>
 
     <script>
-
     const KEY='pet-vaccination-tracker';
+    const FILTER_KEY=KEY+'-filter';
     const ICONS={'混合ワクチン':'💉','狂犬病ワクチン':'🐕','フィラリア予防':'🦟','ノミ・ダニ予防':'🐛','健康診断':'🏥','その他':'📋'};
+    const NEXT_INTERVALS={'混合ワクチン':365,'狂犬病ワクチン':365,'フィラリア予防':365,'ノミ・ダニ予防':30,'健康診断':365,'その他':365};
+
     function load(){ return JSON.parse(localStorage.getItem(KEY)||'[]'); }
-    function save(d){ localStorage.setItem(KEY,JSON.stringify(d)); }
+    function save(d){
+      try{
+        localStorage.setItem(KEY,JSON.stringify(d));
+      }catch(e){
+        if(e.name==='QuotaExceededError'){
+          alert('データが多すぎます。古い記録を削除してください');
+        }else{
+          throw e;
+        }
+      }
+    }
+    function formatDate(dateStr){
+      const [y,m,d]=dateStr.split('-');
+      return `${y}年${parseInt(m)}月${parseInt(d)}日`;
+    }
+    function calcNextDate(dateStr,type){
+      const d=new Date(dateStr);
+      const interval=NEXT_INTERVALS[type]||365;
+      d.setDate(d.getDate()+interval);
+      return d.toISOString().slice(0,10);
+    }
     function addEntry(){
       const name=document.getElementById('pet-name').value.trim();
       const type=document.getElementById('pet-type').value;
@@ -225,29 +247,68 @@ j=d.createElement(s),dl=l!="dataLayer"?"&l="+l:"";j.async=true;j.src=
       const memo=document.getElementById('pet-memo').value.trim();
       const data=load();
       data.unshift({id:Date.now(),name,type,date,next,memo});
-      save(data); render();
-      document.getElementById('pet-memo').value='';
+      save(data);
+      document.getElementById('pet-name').value='';
+      document.getElementById('pet-type').selectedIndex=0;
       document.getElementById('pet-next').value='';
+      document.getElementById('pet-memo').value='';
+      const _n=new Date();
+      document.getElementById('pet-date').value=`${_n.getFullYear()}-${String(_n.getMonth()+1).padStart(2,'0')}-${String(_n.getDate()).padStart(2,'0')}`;
+      document.getElementById('pet-name').focus();
+      render();
     }
-    function deleteEntry(id){ save(load().filter(x=>x.id!==id)); render(); }
+    function deleteEntry(id){
+      if(!confirm('この記録を削除しますか？')){ return; }
+      save(load().filter(x=>x.id!==id));
+      render();
+    }
     let currentFilter='';
+    function setFilter(name){
+      currentFilter=name;
+      try{
+        localStorage.setItem(FILTER_KEY,name);
+      }catch(e){}
+      render();
+    }
     function render(){
       const data=load();
-      if(!data.length){ document.getElementById('result').classList.remove('show'); currentFilter=''; return; }
+      if(!data.length){
+        document.getElementById('result').classList.remove('show');
+        return;
+      }
       document.getElementById('result').classList.add('show');
       const today=new Date().toISOString().slice(0,10);
-      // ペット別フィルター生成
       const petNames=[...new Set(data.map(x=>x.name))];
       const multiPet=petNames.length>1;
       if(!multiPet) currentFilter='';
       const filtered=currentFilter?data.filter(x=>x.name===currentFilter):data;
+
+      // 統計情報を計算
+      const overdue=filtered.filter(x=>x.next&&x.next<today).length;
+      const soon=filtered.filter(x=>x.next&&x.next>=today&&x.next<new Date(Date.now()+30*86400000).toISOString().slice(0,10)).length;
+      const nextDateAll=[...filtered].filter(x=>x.next).sort((a,b)=>a.next.localeCompare(b.next));
+      const nextSchedule=nextDateAll.length?nextDateAll[0].next:'なし';
+
+      // 統計パネル
+      const statsHtml=`<div style="background:#f0fdf4;border:1px solid #dcfce7;border-radius:8px;padding:12px;margin-bottom:12px;font-size:12px;">
+        <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;text-align:center;">
+          <div><span style="color:#666;">総記録</span><div style="font-size:18px;font-weight:700;color:#16a34a;">${filtered.length}</div></div>
+          <div><span style="color:#666;">期限超過</span><div style="font-size:18px;font-weight:700;color:${overdue>0?'#dc2626':'#16a34a'};"> ${overdue}</div></div>
+          <div><span style="color:#666;">30日以内</span><div style="font-size:18px;font-weight:700;color:${soon>0?'#f59e0b':'#16a34a'};"> ${soon}</div></div>
+        </div>
+        <div style="margin-top:8px;padding-top:8px;border-top:1px solid #dcfce7;text-align:center;">
+          <span style="color:#666;">次の接種予定:</span> <span style="font-weight:600;">${nextSchedule!=='なし'?formatDate(nextSchedule):nextSchedule}</span>
+        </div>
+      </div>`;
+
       const filterHtml=multiPet?`<div style="margin-bottom:12px;display:flex;gap:6px;flex-wrap:wrap;align-items:center;">
         <span style="font-size:12px;color:#666;">絞り込み:</span>
-        <button onclick="setFilter('')" style="padding:4px 10px;border-radius:20px;border:1.5px solid ${currentFilter===''?'#F97316':'#e5e7eb'};background:${currentFilter===''?'#F97316':'white'};color:${currentFilter===''?'white':'#555'};font-size:12px;cursor:pointer;">すべて</button>
-        ${petNames.map(n=>`<button onclick="setFilter('${n.replace(/'/g,"\\'")}') " style="padding:4px 10px;border-radius:20px;border:1.5px solid ${currentFilter===n?'#F97316':'#e5e7eb'};background:${currentFilter===n?'#F97316':'white'};color:${currentFilter===n?'white':'#555'};font-size:12px;cursor:pointer;">${n}</button>`).join('')}
+        <button onclick="setFilter('')" style="padding:4px 10px;border-radius:20px;border:1.5px solid ${currentFilter===''?'#F97316':'#e5e7eb'};background:${currentFilter===''?'#F97316':'white'};color:${currentFilter===''?'white':'#555'};font-size:12px;cursor:pointer;min-height:auto;">すべて</button>
+        ${petNames.map(n=>`<button onclick="setFilter('${n.replace(/'/g,"\\'")}') " style="padding:4px 10px;border-radius:20px;border:1.5px solid ${currentFilter===n?'#F97316':'#e5e7eb'};background:${currentFilter===n?'#F97316':'white'};color:${currentFilter===n?'white':'#555'};font-size:12px;cursor:pointer;min-height:auto;">${n}</button>`).join('')}
       </div>`:'';
-      const exportHtml=`<button onclick="exportCSV()" style="padding:6px 14px;background:#f0fdf4;border:1.5px solid #16a34a;border-radius:8px;font-size:12px;color:#16a34a;cursor:pointer;font-weight:600;margin-bottom:12px;">📥 CSV出力</button>`;
-      document.getElementById('list-area').innerHTML=`<h3 style="font-size:16px;font-weight:700;margin-bottom:8px;">📋 記録一覧（${filtered.length}件${currentFilter?'・'+currentFilter:''}）</h3>${filterHtml}${exportHtml}`+
+      const exportHtml=`<button onclick="exportCSV()" style="padding:6px 14px;background:#f0fdf4;border:1.5px solid #16a34a;border-radius:8px;font-size:12px;color:#16a34a;cursor:pointer;font-weight:600;margin-bottom:12px;min-height:auto;">📥 CSV出力</button>`;
+
+      document.getElementById('list-area').innerHTML=`<h3 style="font-size:16px;font-weight:700;margin-bottom:12px;">📋 記録一覧（${filtered.length}件${currentFilter?'・'+currentFilter:''}）</h3>${statsHtml}${filterHtml}${exportHtml}`+
       filtered.map(x=>{
         const isOverdue=x.next&&x.next<today;
         const isSoon=x.next&&!isOverdue&&x.next<new Date(Date.now()+30*86400000).toISOString().slice(0,10);
@@ -256,15 +317,14 @@ j=d.createElement(s),dl=l!="dataLayer"?"&l="+l:"";j.async=true;j.src=
             <span style="font-size:20px;">${ICONS[x.type]||'📋'}</span>
             <div>
               <div style="font-weight:600;">${x.name} — ${x.type}</div>
-              <div style="font-size:12px;color:#666;">実施: ${x.date}${x.next?` | 次回: ${x.next}${isOverdue?' ⚠️ 期限超過':isSoon?' 🔔 もうすぐ':''}`:''}${x.memo?` | ${x.memo}`:''}
+              <div style="font-size:12px;color:#666;">実施: ${formatDate(x.date)}${x.next?` | 次回: ${formatDate(x.next)}${isOverdue?' ⚠️ 期限超過':isSoon?' 🔔 もうすぐ':''}`:''}${x.memo?` | ${x.memo}`:''}
               </div>
             </div>
-            <button onclick="deleteEntry(${x.id})" aria-label="${x.name}の${x.type}の記録を削除" style="margin-left:auto;background:none;border:none;color:#9ca3af;cursor:pointer;font-size:16px;">✕</button>
+            <button onclick="deleteEntry(${x.id})" style="margin-left:auto;background:#ff6b6b;color:white;border:none;padding:6px 12px;border-radius:6px;cursor:pointer;font-size:12px;font-weight:600;min-height:44px;min-width:44px;">削除</button>
           </div>
         </div>`;
       }).join('');
     }
-    function setFilter(name){ currentFilter=name; render(); }
     function exportCSV(){
       const data=load();
       if(!data.length) return;
@@ -277,7 +337,21 @@ j=d.createElement(s),dl=l!="dataLayer"?"&l="+l:"";j.async=true;j.src=
       a.download=`pet-records-${new Date().toISOString().slice(0,10)}.csv`;
       a.click();
     }
-    document.addEventListener('DOMContentLoaded',()=>{ const _n=new Date(); document.getElementById('pet-date').value=`${_n.getFullYear()}-${String(_n.getMonth()+1).padStart(2,'0')}-${String(_n.getDate()).padStart(2,'0')}`; render(); });
+    document.getElementById('pet-date').addEventListener('change',function(){
+      const next=document.getElementById('pet-next');
+      if(!next.value){
+        const type=document.getElementById('pet-type').value;
+        next.value=calcNextDate(this.value,type);
+      }
+    });
+    document.addEventListener('DOMContentLoaded',function(){
+      const _n=new Date();
+      document.getElementById('pet-date').value=`${_n.getFullYear()}-${String(_n.getMonth()+1).padStart(2,'0')}-${String(_n.getDate()).padStart(2,'0')}`;
+      try{
+        currentFilter=localStorage.getItem(FILTER_KEY)||'';
+      }catch(e){}
+      render();
+    });
     // ★以下変更不要★
     </script>
     <!-- rakuten-affiliate-block -->
